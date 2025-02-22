@@ -1,18 +1,27 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import feedparser
+import requests
 import time
 import os
 import json
+import re
 from urllib.parse import urlparse
 
-# --- Fonctions de gestion du fichier JSON des flux ---
+# --------------------------------------------------------------------
+#                       FONCTIONS UTILES
+# --------------------------------------------------------------------
 FEEDS_FILE = "feeds.json"
 
 def load_feeds():
+    """Charge le fichier JSON contenant la liste des flux."""
     if not os.path.exists(FEEDS_FILE):
-        # Initialisation avec un flux par défaut
-        default_feeds = [{"url": "https://www.lemonde.fr/rss/une.xml"}]
+        # Initialisation avec un flux par défaut (Le Monde)
+        default_feeds = [
+            {"url": "https://www.lemonde.fr/rss/une.xml"},
+            # Ajouter d'emblée un flux Reddit pour tester
+            {"url": "https://www.reddit.com/r/blackhat/.rss"}
+        ]
         with open(FEEDS_FILE, "w") as f:
             json.dump(default_feeds, f)
         return default_feeds
@@ -20,13 +29,119 @@ def load_feeds():
         return json.load(f)
 
 def save_feeds(feeds):
+    """Sauvegarde la liste des flux dans un fichier JSON."""
     with open(FEEDS_FILE, "w") as f:
         json.dump(feeds, f)
 
-# --- Configuration de la page ---
+def extraire_image_from_summary(summary_html):
+    """
+    Cherche la première balise <img src="..."> dans le HTML du 'summary'.
+    Retourne l'URL si trouvée, sinon None.
+    """
+    pattern = r'<img[^>]+src=["\']([^"\']+)["\']'
+    match = re.search(pattern, summary_html)
+    if match:
+        return match.group(1)
+    return None
+
+def extraire_image(entry):
+    """
+    Tente de récupérer l'URL d'une image dans:
+    1) 'media_content'
+    2) 'media_thumbnail'
+    3) En scannant <img> dans le 'summary' HTML
+    """
+    # 1) media_content
+    mc = entry.get("media_content")
+    if mc and isinstance(mc, list) and len(mc) > 0:
+        url_cand = mc[0].get("url")
+        if url_cand:
+            return url_cand
+
+    # 2) media_thumbnail
+    mt = entry.get("media_thumbnail")
+    if mt and isinstance(mt, list) and len(mt) > 0:
+        url_cand = mt[0].get("url")
+        if url_cand:
+            return url_cand
+
+    # 3) Fallback: chercher <img> dans summary
+    summary_html = entry.get("summary", "")
+    return extraire_image_from_summary(summary_html)
+
+@st.cache_data(show_spinner=False)
+def charger_feed_et_articles(url):
+    """
+    Récupère le flux RSS/Atom via requests + feedparser.
+    Retourne un dict JSON-sérialisable avec:
+      "bozo": bool
+      "articles": liste d'articles (dictionnaires)
+    Chaque article inclut "title", "link", "published", "summary",
+    "published_parsed", "media_content", "media_thumbnail".
+    """
+
+    # Utiliser requests avec un User-Agent "complet"
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/98.0.4758.102 Safari/537.36"
+        )
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except Exception as e:
+        # Si on ne peut pas récupérer le flux
+        return {"bozo": True, "articles": [], "error": str(e)}
+
+    # On parse le contenu
+    raw_feed = feedparser.parse(response.content)
+
+    feed_data = {
+        "bozo": raw_feed.bozo,  # True si parsing invalide
+        "articles": []
+    }
+    for entry in raw_feed.entries:
+        # On récupère, si présents, media_content / media_thumbnail
+        media_content = getattr(entry, "media_content", None)
+        media_thumbnail = getattr(entry, "media_thumbnail", None)
+        feed_data["articles"].append({
+            "title": entry.get("title", "Titre non disponible"),
+            "link": entry.get("link", "#"),
+            "published": entry.get("published", "Date non disponible"),
+            "summary": entry.get("summary", ""),
+            "published_parsed": entry.get("published_parsed", None),
+            "media_content": media_content,
+            "media_thumbnail": media_thumbnail
+        })
+    return feed_data
+
+def get_timestamp(entry):
+    """
+    Retourne un timestamp (float) pour trier l'article par date.
+    """
+    pp = entry.get("published_parsed")
+    if pp:
+        return time.mktime(pp)
+    return 0
+
+def get_origin(entry):
+    """
+    Extrait le domaine et le favicon pour l'article.
+    """
+    link = entry.get("link", "")
+    parsed = urlparse(link)
+    domain = parsed.netloc.replace("www.", "")
+    favicon_url = f"https://www.google.com/s2/favicons?domain={parsed.netloc}"
+    return domain, favicon_url
+
+# --------------------------------------------------------------------
+#                       CONFIG STREAMLIT
+# --------------------------------------------------------------------
 st.set_page_config(page_title="KYRRIA App Demo", layout="wide")
 
-# --- Définition des pages disponibles ---
 pages = [
     "🏠Home",
     "📡Gestionnaire de flux",
@@ -38,7 +153,6 @@ pages = [
     "🕒Timeline"
 ]
 
-# Initialisation de la page sélectionnée dans session_state
 if "selected_page" not in st.session_state:
     st.session_state.selected_page = "Home"
 
@@ -94,7 +208,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- Sidebar de navigation ---
 with st.sidebar:
     st.markdown("""
     <div class="sidebar-header">
@@ -109,9 +222,11 @@ with st.sidebar:
             if st.button(p, key=p):
                 st.session_state.selected_page = p
 
-# --- Détermination du contenu en fonction de la page sélectionnée ---
 page = st.session_state.selected_page
 
+# --------------------------------------------------------------------
+#                          PAGE HOME
+# --------------------------------------------------------------------
 if page == "🏠Home":
     st.title("Bienvenue sur KYRRIA App Demo")
     st.markdown("""
@@ -127,9 +242,12 @@ if page == "🏠Home":
     - **Timeline** : Chronologie d'événements marquants.
     """)
 
+# --------------------------------------------------------------------
+#                     PAGE GESTIONNAIRE DE FLUX
+# --------------------------------------------------------------------
 elif page == "📡Gestionnaire de flux":
     st.title("Gestionnaire de flux RSS")
-    st.markdown("Gérez vos liens RSS. Les flux sont enregistrés dans le fichier `feeds.json`.")
+    st.markdown("Gérez vos liens RSS/Atom. Les flux sont enregistrés dans le fichier feeds.json.")
 
     feeds = load_feeds()
 
@@ -141,7 +259,7 @@ elif page == "📡Gestionnaire de flux":
                 feeds.append({"url": new_flux})
                 save_feeds(feeds)
                 st.success(f"Flux ajouté : {new_flux}")
-                st.experimental_rerun()
+                st.rerun()
             elif new_flux:
                 st.warning("Ce flux est déjà présent.")
             else:
@@ -158,12 +276,14 @@ elif page == "📡Gestionnaire de flux":
             if col3.button("❌", key=f"remove_{index}"):
                 del feeds[index]
                 save_feeds(feeds)
-                st.experimental_rerun()
+                st.rerun()
     else:
         st.info("Aucun flux RSS enregistré.")
 
+# --------------------------------------------------------------------
+#                        PAGE LECTEUR RSS
+# --------------------------------------------------------------------
 elif page == "📰Lecteur RSS":
-    # Insertion d'une ancre pour le scroll
     st.markdown("<div id='lecteur'></div>", unsafe_allow_html=True)
     st.markdown(
         """
@@ -178,14 +298,15 @@ elif page == "📰Lecteur RSS":
         """,
         unsafe_allow_html=True
     )
-    st.title("Lecteur de flux RSS")
-    st.markdown("Ce module agrège les flux RSS enregistrés (via le Gestionnaire de flux) et propose différentes options d'affichage.")
+
+    st.title("Lecteur de flux RSS/Atom")
+    st.markdown("Ce module agrège les flux enregistrés et propose différentes options d’affichage.")
 
     feeds = load_feeds()
     if not feeds:
         st.error("Aucun flux n'est disponible. Veuillez ajouter des flux dans la page 'Gestionnaire de flux'.")
     else:
-        # --- Configuration d'affichage dans un expander ---
+        # --- Config d'affichage
         with st.expander("Configuration d'affichage", expanded=False):
             nb_articles = st.number_input("Nombre d'articles à afficher :", min_value=1, max_value=1000, value=50, step=10)
             st.markdown("**Mode de visualisation :**")
@@ -202,14 +323,17 @@ elif page == "📰Lecteur RSS":
         
         view_mode = st.session_state.view_mode
 
+        # Filtre par mot-clé
         search_keyword = st.text_input("Filtrer par mot-clé dans le titre", "")
- # --- Sélection des flux à afficher ---
+
+        # --- Sélection des flux à afficher
         selected_feeds = []
         st.markdown("### Sélectionner les flux à afficher")
         for feed in feeds:
             parsed = urlparse(feed["url"])
-            feed_meta = feedparser.parse(feed["url"]).feed
-            full_title = feed_meta.get("title", parsed.netloc.replace("www.", "")).strip()
+            # Parse rapide pour choper le titre du flux
+            short_test = feedparser.parse(feed["url"]).feed
+            full_title = short_test.get("title", parsed.netloc.replace("www.", "")).strip()
             parts = full_title.split(" - ", 1)
             main_title = parts[0].strip()
             rest_title = parts[1].strip() if len(parts) > 1 else ""
@@ -229,71 +353,38 @@ elif page == "📰Lecteur RSS":
                 st.markdown(title_html, unsafe_allow_html=True)
             
             with cols[1]:
-                if st.checkbox("", key=feed["url"], value=True):
+                if st.checkbox("Sélectionner", key=feed["url"], value=True, label_visibility="collapsed"):
                     selected_feeds.append(feed["url"])
 
-        # --- CHARGE LES ARTICLES AVANT D'AFFICHER LE COMPTEUR ---
-        @st.cache_data(show_spinner=False)
-        def charger_flux(url):
-            return feedparser.parse(url)
-
-        # Initialisation de la liste des articles
+        # --- Chargement et agrégation
         articles = []
         for feed_url in selected_feeds:
-            flux = charger_flux(feed_url)
-            if flux.bozo:
-                st.error(f"Erreur lors du chargement du flux : {feed_url}")
+            flux_data = charger_feed_et_articles(feed_url)
+            if flux_data.get("bozo") or flux_data.get("error"):
+                # S'il y a un souci (parsing, HTTP, etc.)
+                err_msg = flux_data.get("error", "")
+                if err_msg:
+                    st.error(f"Flux invalide ou inaccessible: {feed_url}\nErreur: {err_msg}")
+                else:
+                    st.error(f"Flux invalide: {feed_url}")
             else:
-                for entry in flux.entries:
-                    entry["feed_url"] = feed_url
-                    articles.append(entry)
+                for item in flux_data["articles"]:
+                    item["feed_url"] = feed_url
+                    articles.append(item)
+                if len(articles) >= 1000:
+                    break
 
-        # --- Affichage du nombre de posts disponibles (AJOUTÉ APRÈS LE CHARGEMENT) ---
+        # Affichage du nombre de posts
         st.markdown(f"**Nombre de posts disponibles :** {len(articles)} / {nb_articles} affichés")
 
-        # --- Chargement et agrégation des flux ---
-        @st.cache_data(show_spinner=False)
-        def charger_flux(url):
-            return feedparser.parse(url)
-
-        articles = []
-        for feed_url in selected_feeds:
-            flux = charger_flux(feed_url)
-            if flux.bozo:
-                st.error(f"Erreur lors du chargement du flux : {feed_url}")
-            else:
-                for entry in flux.entries:
-                    entry["feed_url"] = feed_url
-                    articles.append(entry)
-                    if len(articles) >= 1000:  # Stop collecting after 1000 articles
-                        break
-
-        # Filtrage par mot-clé (insensible à la casse)
+        # Filtrage par mot clé
         if search_keyword:
             articles = [entry for entry in articles if search_keyword.lower() in entry.get("title", "").lower()]
 
-        # Tri des articles par date (les plus récents en premier)
-        def get_timestamp(entry):
-            if "published_parsed" in entry and entry.published_parsed:
-                return time.mktime(entry.published_parsed)
-            return 0
+        # Tri par date (récents en premier)
         articles = sorted(articles, key=get_timestamp, reverse=True)[:nb_articles]
 
-        st.header("Flux RSS Agrégés")
-        def extraire_image(entry):
-            image_url = None
-            if "media_thumbnail" in entry:
-                image_url = entry.media_thumbnail[0]["url"]
-            elif "media_content" in entry:
-                image_url = entry.media_content[0]["url"]
-            return image_url
-
-        def get_origin(entry):
-            link = entry.get("link", "")
-            parsed = urlparse(link)
-            domain = parsed.netloc.replace("www.", "")
-            favicon_url = f"https://www.google.com/s2/favicons?domain={parsed.netloc}"
-            return domain, favicon_url
+        st.header("Flux Agrégés")
 
         if not articles:
             st.info("Aucun article ne correspond aux critères.")
@@ -305,13 +396,17 @@ elif page == "📰Lecteur RSS":
                     st.markdown(f"### [{title}]({link})")  # Titre cliquable
                     published = entry.get("published", "Date non disponible")
                     st.markdown(f"_{published}_")
+
                     image_url = extraire_image(entry)
                     if image_url:
                         st.image(image_url, width=300)
+
                     st.write(entry.get("summary", "Aucun résumé disponible"))
+
                     domain, favicon_url = get_origin(entry)
                     st.markdown(f"![]({favicon_url}) {domain}")
                     st.markdown("---")
+
             elif view_mode == "Liste raccourcie":
                 for entry in articles:
                     title = entry.get("title", "Titre non disponible")
@@ -330,6 +425,7 @@ elif page == "📰Lecteur RSS":
                         unsafe_allow_html=True
                     )
                     st.markdown("<hr style='margin: 1px 0;'>", unsafe_allow_html=True)
+
             elif view_mode == "Vue en cubes":
                 st.markdown("<h3 style='margin:0; padding:0;'>🟦 Vue en cubes</h3>", unsafe_allow_html=True)
 
@@ -349,7 +445,6 @@ elif page == "📰Lecteur RSS":
                                 image_url = extraire_image(entry)
                                 domain, favicon_url = get_origin(entry)
 
-                                # Build the HTML for the article
                                 article_html = f"""
                                 <div style="margin:0; padding:0; background-color:transparent;">
                                 <h4 style="margin:0; padding:0; font-weight:bold; font-size:1rem;">
@@ -367,17 +462,17 @@ elif page == "📰Lecteur RSS":
                                     "<div style='width:100%; height:200px; background-color:#444; display:flex; align-items:center; justify-content:center; color:white; font-size:14px; border-radius:5px;'>Pas d'image</div>"
                                 }
 
-
                                 <p style="margin:0; padding:0; font-size:0.85rem;">
                                     📌 <img src="{favicon_url}" width="14" style="vertical-align:middle;"> {domain}
                                 </p>
                                 <hr style="margin:6px 0 0 0; padding:0; border:none; border-top:1px solid #444;">
                                 </div>
                                 """
-                                
                                 st.markdown(article_html, unsafe_allow_html=True)
 
-# --- Visualisations D3.js ---
+# --------------------------------------------------------------------
+#                        PAGE NODES
+# --------------------------------------------------------------------
 elif page == "🔗Nodes":
     st.title("Nodes")
     st.markdown("Visualisation interactive d'un réseau d'entités avec des données significatives.")
@@ -419,6 +514,7 @@ elif page == "🔗Nodes":
             .force("link", d3.forceLink(links).id(d => d.id).distance(150))
             .force("charge", d3.forceManyBody().strength(-400))
             .force("center", d3.forceCenter(width / 2, height / 2));
+
         const link = svg.append("g")
             .attr("stroke", "#aaa")
             .attr("stroke-opacity", 0.8)
@@ -426,6 +522,7 @@ elif page == "🔗Nodes":
           .data(links)
           .join("line")
             .attr("stroke-width", 2);
+
         const node = svg.append("g")
             .attr("stroke", "#fff")
             .attr("stroke-width", 1.5)
@@ -435,6 +532,7 @@ elif page == "🔗Nodes":
             .attr("r", 15)
             .attr("fill", "#007bff")
             .call(drag(simulation));
+
         const label = svg.append("g")
             .selectAll("text")
             .data(nodes)
@@ -442,6 +540,7 @@ elif page == "🔗Nodes":
             .text(d => d.id)
             .attr("x", 18)
             .attr("y", 5);
+
         simulation.on("tick", () => {
           link
               .attr("x1", d => d.source.x)
@@ -455,6 +554,7 @@ elif page == "🔗Nodes":
               .attr("x", d => d.x)
               .attr("y", d => d.y);
         });
+
         function drag(simulation) {
           function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -481,6 +581,9 @@ elif page == "🔗Nodes":
     """
     components.html(d3_nodes, height=620)
 
+# --------------------------------------------------------------------
+#                        PAGE MAP MONDE
+# --------------------------------------------------------------------
 elif page == "🗺️Map monde":
     st.title("Map Monde")
     st.markdown("Carte interactive du monde avec des indicateurs fictifs par pays.")
@@ -504,11 +607,15 @@ elif page == "🗺️Map monde":
             const svg = d3.select("svg");
             const width = +svg.attr("width") || 960;
             const height = +svg.attr("height") || 600;
+
             const projection = d3.geoNaturalEarth1().fitSize([width, height], world);
             const path = d3.geoPath().projection(projection);
+
             const color = d3.scaleSequential(d3.interpolateBlues)
                             .domain([0, 100]);
+
             world.features.forEach(d => { d.properties.index = Math.floor(Math.random() * 101); });
+
             svg.append("g")
               .selectAll("path")
               .data(world.features)
@@ -517,10 +624,12 @@ elif page == "🗺️Map monde":
                 .attr("stroke", "#fff")
                 .attr("stroke-width", 0.5)
                 .attr("d", path);
+
             const legend = svg.append("g")
                               .attr("transform", "translate(20,20)");
             const legendScale = d3.scaleLinear().domain([0, 100]).range([0, 100]);
             const legendAxis = d3.axisRight(legendScale).ticks(5);
+
             legend.selectAll("rect")
                   .data(d3.range(0, 101, 10))
                   .enter()
@@ -530,6 +639,7 @@ elif page == "🗺️Map monde":
                   .attr("width", 20)
                   .attr("height", 10)
                   .attr("fill", d => color(d));
+
             legend.append("g")
                   .attr("transform", "translate(20,0)")
                   .call(legendAxis);
@@ -540,6 +650,9 @@ elif page == "🗺️Map monde":
     """
     components.html(d3_map, height=620)
 
+# --------------------------------------------------------------------
+#                         PAGE CAMEMBERT
+# --------------------------------------------------------------------
 elif page == "📊Camembert":
     st.title("Camembert")
     st.markdown("Répartition fictive des sources d'information dans le secteur de la santé.")
@@ -559,16 +672,21 @@ elif page == "📊Camembert":
       <script>
         const data = { "Articles Médicaux": 45, "Rapports de Recherche": 35, "Études Cliniques": 20 };
         const width = 500, height = 500, radius = Math.min(width, height) / 2;
+
         const svg = d3.select("svg")
             .attr("viewBox", `0 0 ${width} ${height}`)
           .append("g")
             .attr("transform", `translate(${width / 2},${height / 2})`);
+
         const color = d3.scaleOrdinal()
             .domain(Object.keys(data))
             .range(["#007bff", "#28a745", "#ffc107"]);
+
         const pie = d3.pie().value(d => d[1]);
         const data_ready = pie(Object.entries(data));
+
         const arc = d3.arc().innerRadius(0).outerRadius(radius);
+
         svg.selectAll("path")
           .data(data_ready)
           .join("path")
@@ -576,6 +694,7 @@ elif page == "📊Camembert":
             .attr("fill", d => color(d.data[0]))
             .attr("stroke", "white")
             .style("stroke-width", "2px");
+
         svg.selectAll("text")
           .data(data_ready)
           .join("text")
@@ -589,6 +708,9 @@ elif page == "📊Camembert":
     """
     components.html(d3_pie, height=520)
 
+# --------------------------------------------------------------------
+#                        PAGE BUBBLE CHART
+# --------------------------------------------------------------------
 elif page == "🔵Bubble Chart":
     st.title("Bubble Chart")
     st.markdown("Diagramme à bulles illustrant la fréquence de termes-clés dans les données.")
@@ -616,12 +738,18 @@ elif page == "🔵Bubble Chart":
           {term: "Pharma", freq: 80},
           {term: "Data", freq: 50}
         ];
+
         const svg = d3.select("svg"),
               width = +svg.attr("width") || 800,
               height = +svg.attr("height") || 600;
-        const pack = d3.pack().size([width, height]).padding(5);
+
+        const pack = d3.pack()
+                       .size([width, height])
+                       .padding(5);
+
         const root = d3.hierarchy({children: data}).sum(d => d.freq);
         const nodes = pack(root).leaves();
+
         svg.selectAll("circle")
             .data(nodes)
             .join("circle")
@@ -630,6 +758,7 @@ elif page == "🔵Bubble Chart":
             .attr("r", d => d.r)
             .attr("fill", "#007bff")
             .attr("stroke", "#fff");
+
         svg.selectAll("text")
           .data(nodes)
           .join("text")
@@ -643,6 +772,9 @@ elif page == "🔵Bubble Chart":
     """
     components.html(d3_bubble, height=620)
 
+# --------------------------------------------------------------------
+#                        PAGE TIMELINE
+# --------------------------------------------------------------------
 elif page == "🕒Timeline":
     st.title("Timeline")
     st.markdown("Chronologie interactive d'événements marquants dans le secteur.")
@@ -669,13 +801,17 @@ elif page == "🕒Timeline":
           {label: "Partenariat Stratégique", date: new Date("2025-01-10")},
           {label: "Acquisition", date: new Date("2025-04-20")}
         ];
+
         const svg = d3.select("svg"),
               width = +svg.attr("width") || 900,
               height = +svg.attr("height") || 250,
               margin = {left: 50, right: 50, top: 20, bottom: 20};
+
         const x = d3.scaleTime()
             .domain(d3.extent(events, d => d.date))
             .range([margin.left, width - margin.right]);
+
+        // ligne "timeline"
         svg.append("line")
            .attr("class", "axis")
            .attr("x1", margin.left)
@@ -683,6 +819,8 @@ elif page == "🕒Timeline":
            .attr("y1", height/2)
            .attr("y2", height/2)
            .attr("stroke-width", 2);
+
+        // points + labels
         svg.selectAll("g.event")
           .data(events)
           .join("g")
