@@ -64,16 +64,15 @@ def extraire_image(entry):
     summary_html = entry.get("summary", "")
     return extraire_image_from_summary(summary_html)
 
-# IMPORTANT : pour éviter les problèmes de pickling sur Streamlit Cloud,
-# nous avons retiré le décorateur de cache ici.
 def charger_feed_et_articles(url):
     """
     Récupère le flux RSS/Atom via requests + feedparser.
     Retourne un dict simple avec :
       - "bozo": bool
       - "articles": liste d'articles (dictionnaires)
-    Chaque article contient "title", "link", "published", "summary",
-    "published_parsed", "media_content", "media_thumbnail".
+    Chaque article contient uniquement des types simples :
+      "title", "link", "published", "summary", "published_parsed",
+      "media_content", "media_thumbnail".
     """
     headers = {
         "User-Agent": (
@@ -94,14 +93,32 @@ def charger_feed_et_articles(url):
         "articles": []
     }
     for entry in raw_feed.entries:
-        media_content = getattr(entry, "media_content", None)
-        media_thumbnail = getattr(entry, "media_thumbnail", None)
+        # On ne garde que des types simples (str, bool, None, listes de dictionnaires simples)
+        # Pour published_parsed, on le transforme en tuple (il est normalement picklable, mais on peut aussi le convertir)
+        pp = entry.get("published_parsed")
+        if pp:
+            pp = tuple(pp)  # convertir en tuple
+
+        media_content = None
+        if hasattr(entry, "media_content"):
+            try:
+                media_content = list(entry.media_content)
+            except Exception:
+                media_content = None
+
+        media_thumbnail = None
+        if hasattr(entry, "media_thumbnail"):
+            try:
+                media_thumbnail = list(entry.media_thumbnail)
+            except Exception:
+                media_thumbnail = None
+
         feed_data["articles"].append({
             "title": entry.get("title", "Titre non disponible"),
             "link": entry.get("link", "#"),
             "published": entry.get("published", "Date non disponible"),
             "summary": entry.get("summary", ""),
-            "published_parsed": entry.get("published_parsed", None),
+            "published_parsed": pp,
             "media_content": media_content,
             "media_thumbnail": media_thumbnail
         })
@@ -370,6 +387,12 @@ elif page == "📰Lecteur RSS":
                                 </div>
                                 """
                                 st.markdown(article_html, unsafe_allow_html=True)
+
+# --------------------------------------------------------------------
+#                        PAGE NODES, MAP, CAMEMBERT, etc.
+# --------------------------------------------------------------------
+# (Les autres pages restent inchangées)
+# ... [code pour Nodes, Map monde, Camembert, Bubble Chart, Timeline] ...
 
 
 # --------------------------------------------------------------------
