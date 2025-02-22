@@ -16,10 +16,8 @@ FEEDS_FILE = "feeds.json"
 def load_feeds():
     """Charge le fichier JSON contenant la liste des flux."""
     if not os.path.exists(FEEDS_FILE):
-        # Initialisation avec un flux par défaut (Le Monde)
         default_feeds = [
             {"url": "https://www.lemonde.fr/rss/une.xml"},
-            # Ajouter d'emblée un flux Reddit pour tester
             {"url": "https://www.reddit.com/r/blackhat/.rss"}
         ]
         with open(FEEDS_FILE, "w") as f:
@@ -46,41 +44,37 @@ def extraire_image_from_summary(summary_html):
 
 def extraire_image(entry):
     """
-    Tente de récupérer l'URL d'une image dans:
-    1) 'media_content'
-    2) 'media_thumbnail'
-    3) En scannant <img> dans le 'summary' HTML
+    Tente de récupérer l'URL d'une image dans :
+      1) 'media_content'
+      2) 'media_thumbnail'
+      3) En scannant <img> dans le 'summary'
     """
-    # 1) media_content
     mc = entry.get("media_content")
     if mc and isinstance(mc, list) and len(mc) > 0:
         url_cand = mc[0].get("url")
         if url_cand:
             return url_cand
 
-    # 2) media_thumbnail
     mt = entry.get("media_thumbnail")
     if mt and isinstance(mt, list) and len(mt) > 0:
         url_cand = mt[0].get("url")
         if url_cand:
             return url_cand
 
-    # 3) Fallback: chercher <img> dans summary
     summary_html = entry.get("summary", "")
     return extraire_image_from_summary(summary_html)
 
-@st.cache_data(show_spinner=False)
+# IMPORTANT : pour éviter les problèmes de pickling sur Streamlit Cloud,
+# nous avons retiré le décorateur de cache ici.
 def charger_feed_et_articles(url):
     """
     Récupère le flux RSS/Atom via requests + feedparser.
-    Retourne un dict JSON-sérialisable avec:
-      "bozo": bool
-      "articles": liste d'articles (dictionnaires)
-    Chaque article inclut "title", "link", "published", "summary",
+    Retourne un dict simple avec :
+      - "bozo": bool
+      - "articles": liste d'articles (dictionnaires)
+    Chaque article contient "title", "link", "published", "summary",
     "published_parsed", "media_content", "media_thumbnail".
     """
-
-    # Utiliser requests avec un User-Agent "complet"
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -88,23 +82,18 @@ def charger_feed_et_articles(url):
             "Chrome/98.0.4758.102 Safari/537.36"
         )
     }
-
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
     except Exception as e:
-        # Si on ne peut pas récupérer le flux
         return {"bozo": True, "articles": [], "error": str(e)}
 
-    # On parse le contenu
     raw_feed = feedparser.parse(response.content)
-
     feed_data = {
-        "bozo": raw_feed.bozo,  # True si parsing invalide
+        "bozo": raw_feed.bozo,
         "articles": []
     }
     for entry in raw_feed.entries:
-        # On récupère, si présents, media_content / media_thumbnail
         media_content = getattr(entry, "media_content", None)
         media_thumbnail = getattr(entry, "media_thumbnail", None)
         feed_data["articles"].append({
@@ -119,18 +108,12 @@ def charger_feed_et_articles(url):
     return feed_data
 
 def get_timestamp(entry):
-    """
-    Retourne un timestamp (float) pour trier l'article par date.
-    """
     pp = entry.get("published_parsed")
     if pp:
         return time.mktime(pp)
     return 0
 
 def get_origin(entry):
-    """
-    Extrait le domaine et le favicon pour l'article.
-    """
     link = entry.get("link", "")
     parsed = urlparse(link)
     domain = parsed.netloc.replace("www.", "")
@@ -156,53 +139,18 @@ pages = [
 if "selected_page" not in st.session_state:
     st.session_state.selected_page = "Home"
 
-# --- CSS personnalisé pour la sidebar ---
 st.markdown(
     """
     <style>
-      html, body {
-          margin: 0;
-          padding: 0;
-          font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-          background-color: #f7f7f7;
-          color: #333;
-      }
+      html, body { margin: 0; padding: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; background-color: #f7f7f7; color: #333; }
       .reportview-container { padding: 1rem; }
-      .sidebar-header {
-          text-align: center;
-          margin-bottom: 2rem;
-      }
-      .sidebar-header h2 {
-          font-size: 1.5rem;
-          margin: 0;
-          color: #007bff;
-      }
-      [data-testid="stSidebar"] .stButton button {
-          background-color: #007bff;
-          color: #fff;
-          border: none;
-          padding: 0.8rem 1rem;
-          margin-bottom: 0.5rem;
-          border-radius: 4px;
-          width: 100%;
-          text-align: left;
-      }
-      [data-testid="stSidebar"] .stButton button:hover {
-          background-color: #0056b3;
-      }
-      [data-testid="stSidebar"] .stButton button:disabled {
-          background-color: #007bff;
-          color: #fff;
-          opacity: 1;
-          cursor: default;
-      }
+      .sidebar-header { text-align: center; margin-bottom: 2rem; }
+      .sidebar-header h2 { font-size: 1.5rem; margin: 0; color: #007bff; }
+      [data-testid="stSidebar"] .stButton button { background-color: #007bff; color: #fff; border: none; padding: 0.8rem 1rem; margin-bottom: 0.5rem; border-radius: 4px; width: 100%; text-align: left; }
+      [data-testid="stSidebar"] .stButton button:hover { background-color: #0056b3; }
+      [data-testid="stSidebar"] .stButton button:disabled { background-color: #007bff; color: #fff; opacity: 1; cursor: default; }
       .block-container { padding: 2rem; }
-     div.stButton > button {
-        width: 100%;
-        height: 50px;
-        font-size: 18px;
-        margin-bottom: 5px;
-    }
+      div.stButton > button { width: 100%; height: 50px; font-size: 18px; margin-bottom: 5px; }
     </style>
     """,
     unsafe_allow_html=True
@@ -233,26 +181,22 @@ if page == "🏠Home":
     **KYRRIA App Demo** est une application de démonstration présentant diverses visualisations interactives réalisées avec D3.js.  
     Utilisez la barre latérale pour naviguer entre les sections :
     
-    - **Gestionnaire de flux** : Ajoutez et supprimez vos flux RSS (les modifications sont enregistrées dans un fichier JSON).
-    - **Lecteur RSS** : Agrégation complète des flux RSS avec options d’affichage.
+    - **Gestionnaire de flux** : Ajoutez/supprimez vos flux RSS/Atom.
+    - **Lecteur RSS** : Agrégation complète des flux avec options d’affichage.
     - **Nodes** : Visualisation interactive d'un réseau d'entités.
-    - **Map monde** : Carte interactive du monde avec indicateurs.
-    - **Camembert** : Répartition d'une donnée catégorielle.
-    - **Bubble Chart** : Diagramme à bulles illustrant des métriques.
-    - **Timeline** : Chronologie d'événements marquants.
+    - **Map monde** : Carte interactive du monde.
+    - **Camembert**, **Bubble Chart**, **Timeline** : Différentes visualisations.
     """)
 
 # --------------------------------------------------------------------
 #                     PAGE GESTIONNAIRE DE FLUX
 # --------------------------------------------------------------------
 elif page == "📡Gestionnaire de flux":
-    st.title("Gestionnaire de flux RSS")
+    st.title("Gestionnaire de flux RSS/Atom")
     st.markdown("Gérez vos liens RSS/Atom. Les flux sont enregistrés dans le fichier feeds.json.")
-
     feeds = load_feeds()
-
     with st.form("flux_form"):
-        new_flux = st.text_input("URL du flux RSS", placeholder="https://exemple.com/rss")
+        new_flux = st.text_input("URL du flux", placeholder="https://exemple.com/rss")
         submit_flux = st.form_submit_button("Ajouter")
         if submit_flux:
             if new_flux and new_flux not in [feed["url"] for feed in feeds]:
@@ -264,8 +208,7 @@ elif page == "📡Gestionnaire de flux":
                 st.warning("Ce flux est déjà présent.")
             else:
                 st.error("Veuillez entrer une URL valide.")
-
-    st.markdown("### Flux RSS enregistrés")
+    st.markdown("### Flux enregistrés")
     if feeds:
         for index, feed in enumerate(feeds):
             domain = urlparse(feed["url"]).netloc.replace("www.", "")
@@ -278,41 +221,32 @@ elif page == "📡Gestionnaire de flux":
                 save_feeds(feeds)
                 st.rerun()
     else:
-        st.info("Aucun flux RSS enregistré.")
+        st.info("Aucun flux enregistré.")
 
 # --------------------------------------------------------------------
 #                        PAGE LECTEUR RSS
 # --------------------------------------------------------------------
 elif page == "📰Lecteur RSS":
     st.markdown("<div id='lecteur'></div>", unsafe_allow_html=True)
-    st.markdown(
-        """
+    st.markdown("""
         <script>
         setTimeout(function() {
             var element = document.getElementById('lecteur');
-            if(element) {
-                element.scrollIntoView({ behavior: 'smooth' });
-            }
+            if(element) { element.scrollIntoView({ behavior: 'smooth' }); }
         }, 100);
         </script>
-        """,
-        unsafe_allow_html=True
-    )
-
+        """, unsafe_allow_html=True)
     st.title("Lecteur de flux RSS/Atom")
-    st.markdown("Ce module agrège les flux enregistrés et propose différentes options d’affichage.")
-
+    st.markdown("Ce module agrège les flux enregistrés et propose plusieurs options d'affichage.")
     feeds = load_feeds()
     if not feeds:
-        st.error("Aucun flux n'est disponible. Veuillez ajouter des flux dans la page 'Gestionnaire de flux'.")
+        st.error("Aucun flux n'est disponible. Veuillez ajouter des flux dans 'Gestionnaire de flux'.")
     else:
-        # --- Config d'affichage
         with st.expander("Configuration d'affichage", expanded=False):
             nb_articles = st.number_input("Nombre d'articles à afficher :", min_value=1, max_value=1000, value=50, step=10)
             st.markdown("**Mode de visualisation :**")
             if "view_mode" not in st.session_state:
                 st.session_state.view_mode = "Liste détaillée"
-            
             col1, col2, col3 = st.columns(3)
             if col1.button("Liste détaillée", key="vis_detailed"):
                 st.session_state.view_mode = "Liste détaillée"
@@ -320,25 +254,18 @@ elif page == "📰Lecteur RSS":
                 st.session_state.view_mode = "Liste raccourcie"
             if col3.button("Vue en cubes", key="vis_cubes"):
                 st.session_state.view_mode = "Vue en cubes"
-        
         view_mode = st.session_state.view_mode
-
-        # Filtre par mot-clé
         search_keyword = st.text_input("Filtrer par mot-clé dans le titre", "")
-
-        # --- Sélection des flux à afficher
         selected_feeds = []
-        st.markdown("### Sélectionner les flux à afficher")
+        st.markdown("### Sélectionnez les flux à afficher")
         for feed in feeds:
             parsed = urlparse(feed["url"])
-            # Parse rapide pour choper le titre du flux
-            short_test = feedparser.parse(feed["url"]).feed
-            full_title = short_test.get("title", parsed.netloc.replace("www.", "")).strip()
+            short_info = feedparser.parse(feed["url"]).feed
+            full_title = short_info.get("title", parsed.netloc.replace("www.", "")).strip()
             parts = full_title.split(" - ", 1)
             main_title = parts[0].strip()
             rest_title = parts[1].strip() if len(parts) > 1 else ""
             favicon_url = f"https://www.google.com/s2/favicons?domain={parsed.netloc}"
-            
             cols = st.columns([0.9, 0.1])
             with cols[0]:
                 title_html = f"""
@@ -351,17 +278,13 @@ elif page == "📰Lecteur RSS":
                 </p>
                 """
                 st.markdown(title_html, unsafe_allow_html=True)
-            
             with cols[1]:
                 if st.checkbox("Sélectionner", key=feed["url"], value=True, label_visibility="collapsed"):
                     selected_feeds.append(feed["url"])
-
-        # --- Chargement et agrégation
         articles = []
         for feed_url in selected_feeds:
             flux_data = charger_feed_et_articles(feed_url)
             if flux_data.get("bozo") or flux_data.get("error"):
-                # S'il y a un souci (parsing, HTTP, etc.)
                 err_msg = flux_data.get("error", "")
                 if err_msg:
                     st.error(f"Flux invalide ou inaccessible: {feed_url}\nErreur: {err_msg}")
@@ -373,19 +296,11 @@ elif page == "📰Lecteur RSS":
                     articles.append(item)
                 if len(articles) >= 1000:
                     break
-
-        # Affichage du nombre de posts
-        st.markdown(f"**Nombre de posts disponibles :** {len(articles)} / {nb_articles} affichés")
-
-        # Filtrage par mot clé
+        st.markdown(f"**Nombre d'articles disponibles :** {len(articles)} / {nb_articles} affichés")
         if search_keyword:
             articles = [entry for entry in articles if search_keyword.lower() in entry.get("title", "").lower()]
-
-        # Tri par date (récents en premier)
         articles = sorted(articles, key=get_timestamp, reverse=True)[:nb_articles]
-
         st.header("Flux Agrégés")
-
         if not articles:
             st.info("Aucun article ne correspond aux critères.")
         else:
@@ -393,20 +308,16 @@ elif page == "📰Lecteur RSS":
                 for entry in articles:
                     title = entry.get("title", "Titre non disponible")
                     link = entry.get("link", "#")
-                    st.markdown(f"### [{title}]({link})")  # Titre cliquable
+                    st.markdown(f"### [{title}]({link})")
                     published = entry.get("published", "Date non disponible")
                     st.markdown(f"_{published}_")
-
                     image_url = extraire_image(entry)
                     if image_url:
                         st.image(image_url, width=300)
-
                     st.write(entry.get("summary", "Aucun résumé disponible"))
-
                     domain, favicon_url = get_origin(entry)
                     st.markdown(f"![]({favicon_url}) {domain}")
                     st.markdown("---")
-
             elif view_mode == "Liste raccourcie":
                 for entry in articles:
                     title = entry.get("title", "Titre non disponible")
@@ -425,13 +336,10 @@ elif page == "📰Lecteur RSS":
                         unsafe_allow_html=True
                     )
                     st.markdown("<hr style='margin: 1px 0;'>", unsafe_allow_html=True)
-
             elif view_mode == "Vue en cubes":
                 st.markdown("<h3 style='margin:0; padding:0;'>🟦 Vue en cubes</h3>", unsafe_allow_html=True)
-
                 num_cols = min(4, max(1, len(articles)))
                 rows = (len(articles) + num_cols - 1) // num_cols
-
                 for i in range(rows):
                     cols = st.columns(num_cols, gap="small")
                     for j, col in enumerate(cols):
@@ -444,7 +352,6 @@ elif page == "📰Lecteur RSS":
                                 published = entry.get("published", "Date non disponible")
                                 image_url = extraire_image(entry)
                                 domain, favicon_url = get_origin(entry)
-
                                 article_html = f"""
                                 <div style="margin:0; padding:0; background-color:transparent;">
                                 <h4 style="margin:0; padding:0; font-weight:bold; font-size:1rem;">
@@ -455,13 +362,7 @@ elif page == "📰Lecteur RSS":
                                 <p style="margin:3px 0; padding:0; font-size:0.9rem; color:#bbb;">
                                     📅 {published}
                                 </p>
-
-                                {
-                                    f"<img src='{image_url}' style='width:100%; max-height:200px; object-fit:cover; overflow:hidden; border-radius:5px; margin:0 0 3px 0;'/>"
-                                    if image_url else
-                                    "<div style='width:100%; height:200px; background-color:#444; display:flex; align-items:center; justify-content:center; color:white; font-size:14px; border-radius:5px;'>Pas d'image</div>"
-                                }
-
+                                { f"<img src='{image_url}' style='width:100%; max-height:200px; object-fit:cover; overflow:hidden; border-radius:5px; margin:0 0 3px 0;'/>" if image_url else "<div style='width:100%; height:200px; background-color:#444; display:flex; align-items:center; justify-content:center; color:white; font-size:14px; border-radius:5px;'>Pas d'image</div>" }
                                 <p style="margin:0; padding:0; font-size:0.85rem;">
                                     📌 <img src="{favicon_url}" width="14" style="vertical-align:middle;"> {domain}
                                 </p>
@@ -469,6 +370,7 @@ elif page == "📰Lecteur RSS":
                                 </div>
                                 """
                                 st.markdown(article_html, unsafe_allow_html=True)
+
 
 # --------------------------------------------------------------------
 #                        PAGE NODES
