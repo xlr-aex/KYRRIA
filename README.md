@@ -1,6 +1,6 @@
 # 🚀 KYRRIA App Demo
 
-> **Un lecteur RSS avancé & explorateur de graphes interactifs**
+> **Plateforme de Veille Informationnelle et d'Analyse Relationnelle**
 
 ---
 
