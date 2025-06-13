@@ -1,0 +1,19 @@
+# ----------------------------------------
+#  KYRRIA — dépendances applicatives
+#  Python >= 3.13  (testé sous Win 11 et Ubuntu 24.04)
+# ----------------------------------------
+setuptools           ==80.9.0      # build/packaging utils
+aiohttp              ==3.12.3      # dernier wheel cp313
+beautifulsoup4       ==4.13.4
+feedparser           ==6.0.11
+matplotlib           ==3.10.3      # wheel cp313 disponible :contentReference[oaicite:0]{index=0}
+nest_asyncio         ==1.6.0
+numpy                ==1.26.4      # compatible Py 3.13 + évite encore les soucis avec NumPy 2 :contentReference[oaicite:1]{index=1}
+pandas               ==2.2.2       # wheel cp313, requiert numpy >= 1.24 < 3
+Pillow               ==11.2.1
+plotly               ==6.1.2
+requests             ==2.32.4
+streamlit            ==1.45.1      # dernière stable, tolère numpy < 3 :contentReference[oaicite:2]{index=2}
+streamlit-echarts    ==0.3.0
+streamlit-vis-timeline==0.3.0      # seule version wheel → Py >= 3.8, ok 3.13
+wordcloud            ==1.9.3       # corrige le bug SafeConfigParser :contentReference[oaicite:3]{index=3}
