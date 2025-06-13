@@ -1,147 +1,131 @@
+Voici un modèle de **README.md** en Markdown, ultra-professionnel et clair, adapté à Windows & Linux. Il inclut le préambule, l’installation locale, le déploiement cloud, et les commandes Git pour écraser le dépôt distant avec votre dossier local.
+
 ````markdown
 # 🚀 KYRRIA App Demo
 
-> **Un lecteur RSS avancé & explorateur de graphes interactif**
+> **Un lecteur RSS avancé & explorateur de graphes interactifs**
 
 ---
 
-## 📝 Introduction
+## 📖 Préambule
 
-KYRRIA est une application **open-source** pensée pour les utilisateurs exigeants :  
-- **Agrégation** et **gestion** de flux RSS/Atom via une interface claire.  
-- **Lecture** enrichie avec filtrage, pagination et mise en cache.  
-- **Stockage** local des articles (« Enregistrer en DB ») pour analyse ultérieure.  
-- **Visualisations** variées : timeline, barres, treemap, nuage de mots…  
-- **Graphes D3.js** pour explorer relations et entités extraites (via Google Gemini).  
+KYRRIA est une application **open-source** développée en Python/Streamlit pour les utilisateurs exigeants :
 
-Disponible en local avec Python 3.12, ou immédiatement en cloud :  
-➡️ **https://kyrria.streamlit.app**
+- **Agrégation & gestion** de flux RSS/Atom via une interface intuitive  
+- **Lecture** enrichie : filtrage, pagination, mise en cache  
+- **Stockage local** des articles (« Enregistrer en DB ») pour analyse ultérieure  
+- **Visualisations variées** : timeline, barres, treemap, nuage de mots…  
+- **Graphes D3.js** pour explorer entités & relations extraites (via Google Gemini)  
 
----
-
-## 🌐 Version Cloud
-
-Testez sans installation :  
-➡️ **https://kyrria.streamlit.app**
+Disponible en local (Python 3.12) et immédiatement en cloud sur :  
+➡️ [https://kyrria.streamlit.app](https://kyrria.streamlit.app)  
+Code source : [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
 
 ---
 
-## 📋 Prérequis
+## 🛠️ Prérequis
 
-- **Python 3.12.x** (strictement)  
-- **pip ≥ 22.0**  
-- **Git** (optionnel)
+- **Python ≥ 3.12**  
+- **Git**  
+- Windows 10+ ou Linux/macOS
 
-Vérifiez vos versions :
+---
 
-<details>
-<summary>Windows (PowerShell)</summary>
+## ⚙️ Installation & exécution locale
 
-```powershell
-python --version      # → Python 3.12.x
-pip --version         # → pip ≥ 22.0
+1. **Cloner le repo** dans `D:\KYRRIA_final` (ou chemin de votre choix)  
+   ```bash
+   git clone https://github.com/xlr-aex/KYRRIA.git D:\KYRRIA_final
+   cd D:\KYRRIA_final
 ````
 
-</details>
+2. **Ne pas versionner le venv**
 
-<details>
-<summary>Linux / macOS</summary>
+   ```bash
+   cat <<EOF >> .gitignore
+   # Virtual environments
+   .venv/
+   venv/
+   env/
+   __pycache__/
+   *.py[cod]
+   EOF
+   git add .gitignore
+   git commit -m "🧹 Ajoute .gitignore pour ignorer le venv"
+   ```
+
+3. **Créer et activer l’environnement virtuel**
+
+   ```bash
+   python3 -m venv .venv
+   # Sous Windows
+   .\.venv\Scripts\activate
+   # Sous Linux/macOS
+   source .venv/bin/activate
+   ```
+
+4. **Mettre à jour pip & installer les dépendances**
+
+   ```bash
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+
+5. **Lancer l’application**
+
+   ```bash
+   streamlit run Kyrria.py
+   ```
+
+---
+
+## 🌐 Déploiement Streamlit Cloud
+
+Ce repo est connecté à Streamlit Cloud :
+
+* URL : [kyrria.streamlit.app](https://kyrria.streamlit.app)
+* Branche de production : `main`
+
+---
+
+## 🔄 Pour écraser le dépôt distant avec votre dossier local
+
+> **Attention :** cette opération force la mise à jour du `main` sur GitHub.
 
 ```bash
-python3 --version     # → Python 3.12.x
-pip3 --version        # → pip ≥ 22.0
+cd D:\KYRRIA_final
+
+# Initialiser Git si besoin
+git init
+
+# Définir l’origin et écraser
+git remote remove origin 2>/dev/null || true
+git remote add origin https://github.com/xlr-aex/KYRRIA.git
+
+# Ajouter, committer et forcer le push
+git add .
+git commit -m "🔥 Mise à jour complète depuis local"
+git push -u origin main --force
 ```
 
-</details>
+---
+
+## 🎯 Usage rapide
+
+* **🏠 Home** : présentation
+* **📡 Gestionnaire de flux** : ajouter/supprimer vos RSS
+* **📰 Lecteur RSS** : lire & enregistrer vos articles
+* **🔗 Nodes** : graphe d’occurrences par mot-clé
+* **📊 Dashboard** : graphiques barres, treemap, timeline…
+* **💡 Entities & Relations** : extraction NER + graphe D3.js
 
 ---
 
-## 🛠️ Installation & Lancement
+## 🤝 Contribution
 
-### 1. Récupérer le code
-
-```bash
-git clone https://…/KYRRIA_final.git
-cd KYRRIA_final
-```
-
-> Si vous n’avez pas Git, téléchargez l’archive ZIP et décompressez-la.
+1. Forkez ce dépôt
+2. Créez une branche `feature/…`
+3. Ouvrez un **Pull Request**
+4. Nous validerons et fusionnerons
 
 ---
-
-### 2. Créer et activer l’environnement virtuel
-
-| Plate-forme              | Commandes                                                            |
-| ------------------------ | -------------------------------------------------------------------- |
-| **Windows – PowerShell** | `powershell<br>python -m venv .venv<br>. .venv\Scripts\Activate.ps1` |
-| **Windows – CMD**        | `cmd<br>python -m venv .venv<br>.venv\Scripts\activate.bat`          |
-| **Linux & macOS**        | `bash<br>python3 -m venv .venv<br>source .venv/bin/activate`         |
-
-> Un préfixe `(.venv)` doit apparaître dans votre invite.
-
----
-
-### 3. Mettre à jour pip & installer les dépendances
-
-```bash
-pip install --upgrade pip
-pip install --no-cache-dir -r requirements.txt
-```
-
-> **Astuce** :
->
-> * En cas de conflit (numpy, matplotlib…), assurez-vous d’être sous Python 3.12.
-> * Pour repartir de zéro, supprimez et recréez le venv :
->
->   ```bash
->   deactivate  
->   rm -rf .venv  
->   python3.12 -m venv .venv  
->   source .venv/bin/activate  
->   pip install -r requirements.txt
->   ```
-
----
-
-### 4. Lancer l’application
-
-```bash
-streamlit run Kyrria.py
-```
-
-Ouvrez votre navigateur à l’URL indiquée (par défaut → `http://localhost:8501`).
-
----
-
-## 📖 Usage rapide
-
-1. **Inscription / Connexion**
-2. **Gestionnaire de flux** → ajoutez ou supprimez vos RSS/Atom.
-3. **Lecteur RSS** → lisez, filtrez et enregistrez vos articles.
-4. **Dashboard** → visualisez statistiques & graphiques.
-5. **Nodes & Entities & Relations** → explorez relations et entités extraites via D3.js.
-
----
-
-## 🆘 Support & Debug
-
-* **Logs** : activez le log dans `Kyrria.py`
-
-  ```python
-  import logging
-  logging.basicConfig(level=logging.DEBUG, filename='kyrria.log')
-  ```
-* **Problèmes d’installation** :
-
-  1. Vérifiez la version de Python.
-  2. Supprimez et recréez le venv.
-  3. Ouvrez une issue sur GitHub.
-
----
-
-> **BON TEST !** 🚀
-> KYRRIA – votre compagnon RSS & data-viz.
-> **Cloud** : [https://kyrria.streamlit.app](https://kyrria.streamlit.app)
-
-```
-```
