@@ -12,11 +12,20 @@ KYRRIA est une application **open-source** développée en Python/Streamlit pour
 - **Lecture** enrichie : filtrage, pagination, mise en cache  
 - **Stockage local** des articles (« Enregistrer en DB ») pour analyse ultérieure  
 - **Visualisations variées** : timeline, barres, treemap, nuage de mots…  
-- **Graphes D3.js** pour explorer entités & relations extraites (via Google Gemini)  
+- **Graphes D3.js** pour explorer entités & relations extraites (via Google Gemini)
 
 Disponible en local (Python 3.12) et immédiatement en cloud sur :  
 ➡️ [https://kyrria.streamlit.app](https://kyrria.streamlit.app)  
 Code source : [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
+
+## 🎯 Usage rapide
+
+* **🏠 Home** : présentation
+* **📡 Gestionnaire de flux** : ajouter/supprimer vos RSS
+* **📰 Lecteur RSS** : lire & enregistrer vos articles
+* **🔗 Nodes** : graphe d’occurrences par mot-clé
+* **📊 Dashboard** : graphiques barres, treemap, timeline…
+* **💡 Entities & Relations** : extraction NER + graphe D3.js
 
 ---
 
@@ -69,18 +78,6 @@ Code source : [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
 Ce repo est connecté à Streamlit Cloud :
 
 * URL : [kyrria.streamlit.app](https://kyrria.streamlit.app)
-* Branche de production : `main`
-
 ---
 
-## 🎯 Usage rapide
-
-* **🏠 Home** : présentation
-* **📡 Gestionnaire de flux** : ajouter/supprimer vos RSS
-* **📰 Lecteur RSS** : lire & enregistrer vos articles
-* **🔗 Nodes** : graphe d’occurrences par mot-clé
-* **📊 Dashboard** : graphiques barres, treemap, timeline…
-* **💡 Entities & Relations** : extraction NER + graphe D3.js
-
----
 
