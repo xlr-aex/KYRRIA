@@ -39,7 +39,10 @@ Code source : [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
 2. **Créer et activer l’environnement virtuel**
 
    ```bash
+   # Créer l'environnement virtuel
    python3 -m venv .venv
+   ```
+   ```bash
    # Sous Windows
    .\.venv\Scripts\activate
    # Sous Linux/macOS
