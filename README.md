@@ -16,7 +16,7 @@ KYRRIA est une application **open-source** développée en Python/Streamlit pour
 
 Disponible en local (Python 3.12) et immédiatement en cloud sur :  
 ➡️ [https://kyrria.streamlit.app](https://kyrria.streamlit.app)  
-Code source : [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
+➡️ [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
 
 ## 🎯 Usage rapide
 
