@@ -36,22 +36,7 @@ Code source : [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
    cd D:\KYRRIA_final
    ```
 
-2. **Ne pas versionner le venv**
-
-   ```bash
-   cat <<EOF >> .gitignore
-   # Virtual environments
-   .venv/
-   venv/
-   env/
-   __pycache__/
-   *.py[cod]
-   EOF
-   git add .gitignore
-   git commit -m "🧹 Ajoute .gitignore pour ignorer le venv"
-   ```
-
-3. **Créer et activer l’environnement virtuel**
+2. **Créer et activer l’environnement virtuel**
 
    ```bash
    python3 -m venv .venv
@@ -61,14 +46,14 @@ Code source : [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
    source .venv/bin/activate
    ```
 
-4. **Mettre à jour pip & installer les dépendances**
+3. **Mettre à jour pip & installer les dépendances**
 
    ```bash
    pip install --upgrade pip
    pip install -r requirements.txt
    ```
 
-5. **Lancer l’application**
+4. **Lancer l’application**
 
    ```bash
    streamlit run Kyrria.py
@@ -85,28 +70,6 @@ Ce repo est connecté à Streamlit Cloud :
 
 ---
 
-## 🔄 Pour écraser le dépôt distant avec votre dossier local
-
-> **Attention :** cette opération force la mise à jour du `main` sur GitHub.
-
-```bash
-cd D:\KYRRIA_final
-
-# Initialiser Git si besoin
-git init
-
-# Définir l’origin et écraser
-git remote remove origin 2>/dev/null || true
-git remote add origin https://github.com/xlr-aex/KYRRIA.git
-
-# Ajouter, committer et forcer le push
-git add .
-git commit -m "🔥 Mise à jour complète depuis local"
-git push -u origin main --force
-```
-
----
-
 ## 🎯 Usage rapide
 
 * **🏠 Home** : présentation
@@ -118,9 +81,3 @@ git push -u origin main --force
 
 ---
 
-1. Forkez ce dépôt
-2. Créez une branche `feature/…`
-3. Ouvrez un **Pull Request**
-4. Nous validerons et fusionnerons
-
----
