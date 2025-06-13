@@ -1,6 +1,3 @@
-Voici un modèle de **README.md** en Markdown, ultra-professionnel et clair, adapté à Windows & Linux. Il inclut le préambule, l’installation locale, le déploiement cloud, et les commandes Git pour écraser le dépôt distant avec votre dossier local.
-
-````markdown
 # 🚀 KYRRIA App Demo
 
 > **Un lecteur RSS avancé & explorateur de graphes interactifs**
@@ -120,8 +117,6 @@ git push -u origin main --force
 * **💡 Entities & Relations** : extraction NER + graphe D3.js
 
 ---
-
-## 🤝 Contribution
 
 1. Forkez ce dépôt
 2. Créez une branche `feature/…`
