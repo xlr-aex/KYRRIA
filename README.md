@@ -34,7 +34,7 @@ Code source : [github.com/xlr-aex/KYRRIA](https://github.com/xlr-aex/KYRRIA)
    ```bash
    git clone https://github.com/xlr-aex/KYRRIA.git D:\KYRRIA_final
    cd D:\KYRRIA_final
-````
+   ```
 
 2. **Ne pas versionner le venv**
 
